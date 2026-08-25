@@ -1,10 +1,9 @@
-import http from "node:http";
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+"use strict";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const http = require("http");
+const fs = require("fs");
+const path = require("path");
+
 const ROOT = __dirname;
 const PORT = process.env.PORT || 8787;
 const UPSTREAM = "https://imaginer.mirava.studio";
@@ -50,14 +49,10 @@ function servePath(file, res) {
   });
 }
 
-async function readBody(req) {
+async function proxy(req, res) {
   const chunks = [];
   for await (const c of req) chunks.push(c);
-  return Buffer.concat(chunks);
-}
-
-async function proxy(req, res) {
-  const body = await readBody(req);
+  const body = Buffer.concat(chunks);
   const headers = {};
   if (req.headers["content-type"]) headers["content-type"] = req.headers["content-type"];
   if (req.headers["authorization"]) headers["authorization"] = req.headers["authorization"];
