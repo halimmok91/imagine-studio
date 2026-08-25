@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: imagine-studio
+    runtime: node
+    plan: free
+    startCommand: node server.js
+    healthCheckPath: /
