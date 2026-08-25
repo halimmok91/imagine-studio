@@ -1,0 +1,13 @@
+{
+  "name": "imagine-studio",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Elegant web GUI for the Imaginer image generation API",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "start": "node server.js"
+  },
+  "type": "module"
+}
