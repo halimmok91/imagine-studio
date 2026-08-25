@@ -42,7 +42,11 @@
         </div>
         <span class="label-hint" id="charCount">0 / 2000</span>
       </div>
-      <textarea id="promptInput" maxlength="2000" rows="5" placeholder="Describe what you want to see…" spellcheck="false"></textarea>
+      <div class="prompt-row">
+        <textarea id="promptInput" maxlength="2000" rows="5" placeholder="Describe what you want to see…" spellcheck="false"></textarea>
+        <button type="button" id="promptHistoryBtn" class="prompt-history-btn" title="Recent prompts" aria-label="Recent prompts">▾</button>
+        <div class="prompt-history" id="promptHistory" hidden></div>
+      </div>
       <div class="prompt-tip"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> to generate</div>
       <div class="guide" id="promptGuide" hidden>
         <div class="guide-step" data-step="1">
@@ -181,6 +185,9 @@
   <section class="stage">
     <div class="stage-head">
       <h1 class="stage-title">Gallery<span id="galleryCount"></span></h1>
+      <div class="stage-search">
+        <input type="search" id="gallerySearch" placeholder="Search prompts…" aria-label="Search gallery">
+      </div>
       <div class="stage-sort">
         <label class="sort-label" for="sortSelect">Sort</label>
         <div class="select-wrap sort-wrap">

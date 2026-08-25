@@ -111,6 +111,16 @@ body::after{
   background:var(--panel);border:1px solid var(--line-soft);border-radius:var(--r-md);
   color:var(--text);transition:border-color .2s,box-shadow .2s;
 }
+.prompt-row{position:relative}
+.prompt-history-btn{position:absolute;top:8px;right:8px;width:24px;height:24px;border-radius:6px;background:rgba(0,0,0,.3);border:1px solid var(--line-soft);color:var(--faint);font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s;z-index:2}
+.prompt-history-btn:hover{color:var(--gold-bright);border-color:rgba(211,177,120,.4);background:rgba(211,177,120,.1)}
+.prompt-history-btn.open{color:var(--gold-bright);background:rgba(211,177,120,.15)}
+.prompt-history{position:absolute;top:34px;right:0;width:100%;max-width:520px;max-height:280px;overflow-y:auto;background:rgba(10,10,14,.98);border:1px solid var(--line);border-radius:var(--r-md);box-shadow:0 18px 50px -10px rgba(0,0,0,.7);z-index:20;padding:5px}
+.prompt-history-item{display:block;width:100%;text-align:left;padding:7px 10px;background:transparent;border:0;border-radius:6px;color:var(--text);font-size:12px;line-height:1.4;cursor:pointer;transition:.12s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prompt-history-item:hover{background:rgba(211,177,120,.1);color:var(--gold-bright)}
+.prompt-history-empty{padding:14px;text-align:center;color:var(--faint);font-size:11px}
+.prompt-history-clear{width:100%;text-align:center;padding:6px;background:transparent;border:0;color:var(--faint);font-size:10.5px;cursor:pointer;letter-spacing:.06em}
+.prompt-history-clear:hover{color:var(--text)}
 #promptInput::placeholder{color:var(--faint)}
 #promptInput:focus{outline:none;border-color:rgba(211,177,120,.45);box-shadow:0 0 0 3px rgba(211,177,120,.08),0 8px 26px -14px rgba(211,177,120,.25)}
 .prompt-tip{margin-top:7px;font-size:10.5px;color:var(--faint)}
@@ -227,6 +237,10 @@ select option{background:#121216;color:var(--text)}
 .stage-title span{font-family:var(--font-ui);font-size:11px;font-weight:500;color:var(--faint);margin-left:11px;letter-spacing:.12em;vertical-align:2px}
 .stage-note{font-size:11px;color:var(--faint)}
 .stage-sort{display:flex;align-items:center;gap:8px}
+.stage-search{flex:1;display:flex;align-items:center;max-width:320px;margin:0 16px}
+.stage-search input{width:100%;padding:6px 12px;background:rgba(0,0,0,.28);border:1px solid var(--line-soft);border-radius:99px;color:var(--text);font-size:12px;transition:.2s}
+.stage-search input::placeholder{color:var(--faint)}
+.stage-search input:focus{outline:none;border-color:rgba(211,177,120,.5);box-shadow:0 0 0 3px rgba(211,177,120,.1)}
 .sort-label{font-size:9.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
 .sort-wrap select{width:auto;min-width:118px;padding:7px 28px 7px 11px;font-size:11px;border-radius:var(--r-sm)}
 
@@ -268,6 +282,11 @@ select option{background:#121216;color:var(--text)}
   background:rgba(8,8,10,.5);backdrop-filter:blur(6px);color:#cfccc5;white-space:nowrap;flex-shrink:0;
 }
 .tag.gold{color:var(--gold-bright);border-color:rgba(211,177,120,.4)}
+.tag-btn{cursor:pointer;background:rgba(0,0,0,.2);transition:.15s}
+.tag-btn:hover{background:rgba(211,177,120,.15);border-color:rgba(211,177,120,.4);color:var(--gold-bright)}
+.card-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.card-tag{font-size:9.5px;font-weight:500;letter-spacing:.04em;padding:2px 7px;border-radius:99px;background:rgba(211,177,120,.12);color:var(--gold-bright);cursor:pointer;border:1px solid rgba(211,177,120,.25);transition:.15s}
+.card-tag:hover{background:rgba(211,177,120,.22);border-color:rgba(211,177,120,.5)}
 .tag.dim-tag{flex-shrink:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
 .card-actions{
   position:absolute;top:10px;right:10px;display:flex;gap:5px;z-index:2;

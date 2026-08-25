@@ -2,7 +2,7 @@
 
 const $ = s => document.querySelector(s);
 const REAL_BASE = "https://imaginer.mirava.studio";
-const LS = { key: "imagine.apiKey", keys: "imagine.apiKeys", base: "imagine.baseUrl", model: "imagine.model", hist: "imagine.history", batch: "imagine.batch", delay: "imagine.delay", seq: "imagine.seq", sort: "imagine.sort" };
+const LS = { key: "imagine.apiKey", keys: "imagine.apiKeys", base: "imagine.baseUrl", model: "imagine.model", hist: "imagine.history", batch: "imagine.batch", delay: "imagine.delay", seq: "imagine.seq", sort: "imagine.sort", promptHistory: "imagine.promptHistory" };
 const MAX_PROMPT = 2000;
 // Reference uploads expire server-side; re-upload any ref older than this before generating.
 const REF_MAX_AGE_MS = 45000;
@@ -41,6 +41,8 @@ const state = {
   refs: [],
   jobs: new Map(),
   history: [],
+  gallerySearch: "",
+  galleryTags: [],
   refSeq: 0,
   keyIdx: 0,
   sort: "newest"
@@ -470,13 +472,49 @@ function renderGallery() {
   });
   // Remove only done/expired cards (the ones derived from history), keep active jobs.
   [...gallery.querySelectorAll(".card.done, .card.expired")].forEach(c => c.remove());
+  // Apply search + tag filters to history
+  const q = (state.gallerySearch || "").trim().toLowerCase();
+  const activeTags = state.galleryTags || [];  // array of tag strings (all must match)
+  const filtered = state.history.filter(rec => {
+    if (q && !(rec.prompt || "").toLowerCase().includes(q) && !(rec.model || "").toLowerCase().includes(q)) return false;
+    if (activeTags.length && !activeTags.every(t => (rec.tags || []).includes(t))) return false;
+    return true;
+  });
   const frag = document.createDocumentFragment();
-  const sorted = [...state.history].sort((a, b) => state.sort === "oldest" ? a.ts - b.ts : b.ts - a.ts);
-  sorted.forEach(rec => frag.appendChild(buildDoneCard(rec)));
+  const sorted = [...filtered].sort((a, b) => state.sort === "oldest" ? a.ts - b.ts : b.ts - a.ts);
+  sorted.forEach(rec => {
+    const card = buildDoneCard(rec);
+    renderCardTags(card, rec);
+    frag.appendChild(card);
+  });
   // Active jobs stay on top (they're in progress).
   active.forEach(c => frag.appendChild(c));
   gallery.appendChild(frag);
+  const countEl = $("#galleryCount");
+  if (countEl) countEl.textContent = filtered.length === state.history.length
+    ? ` · ${state.history.length}`
+    : ` · ${filtered.length} of ${state.history.length}`;
   refreshEmpty();
+}
+
+// Render tag chips inside a card's [data-tags] container.
+function renderCardTags(card, rec) {
+  const container = card.querySelector("[data-tags]");
+  if (!container) return;
+  container.innerHTML = "";
+  (rec.tags || []).forEach(t => {
+    const tag = document.createElement("span");
+    tag.className = "card-tag";
+    tag.textContent = `#${t}`;
+    tag.title = `Click to filter by #${t}`;
+    tag.addEventListener("click", e => {
+      e.stopPropagation();
+      state.galleryTags = Array.from(new Set([...(state.galleryTags || []), t]));
+      renderGallery();
+      saveFilterState();
+    });
+    container.appendChild(tag);
+  });
 }
 
 function buildSkeleton(job) {
@@ -518,8 +556,13 @@ function buildDoneCard(rec) {
   // High-priority fetch for fresh cards, so the browser starts the download immediately.
   const fetchAttr = fresh ? 'fetchpriority="high"' : "";
   const loadingAttr = fresh ? "" : "loading=\"lazy\"";
+  // Try CDN-side thumbnail (Tencent COS image processing). Falls back to full URL
+  // on error — for CDNs that don't support the param, the user just sees the full
+  // image (no worse than before). For CDNs that do, gallery load is ~10x faster.
+  const fullUrl = esc(rec.url);
+  const thumbUrl = makeThumbUrl(rec.url, 512);
   el.innerHTML = `
-    <img alt="" ${loadingAttr} ${fetchAttr} decoding="async" src="${esc(rec.url)}">
+    <img alt="" ${loadingAttr} ${fetchAttr} decoding="async" src="${esc(thumbUrl)}" data-full="${fullUrl}">
     <div class="card-veil"></div>
     <div class="card-actions">
       <button class="mini-btn" data-action="expand" title="View">${ICONS.expand}</button>
@@ -532,7 +575,9 @@ function buildDoneCard(rec) {
         <span class="tag gold">${esc(rec.model)}</span>
         <span class="tag dim-tag">${rec.w ? `${rec.w}×${rec.h}` : "···"}</span>
         ${rec.extra ? `<span class="tag">${esc(rec.extra)}</span>` : ""}
+        <button class="tag tag-btn" data-action="addtag" title="Add tag">+ tag</button>
       </div>
+      <div class="card-tags" data-tags></div>
     </div>`;
   const img = el.querySelector("img");
   img.addEventListener("load", () => {
@@ -544,8 +589,35 @@ function buildDoneCard(rec) {
       saveHistory();
     }
   });
-  img.addEventListener("error", () => markExpired(el), { once: true });
+  // If the thumb URL fails (CDN doesn't support the param), retry with the full URL.
+  img.addEventListener("error", () => {
+    if (img.dataset.fallback === "1") {
+      markExpired(el);
+      return;
+    }
+    img.dataset.fallback = "1";
+    img.src = rec.url;
+  }, { once: true });
   return el;
+}
+
+// Try CDN-side thumbnail transformation. If the CDN doesn't support it, the browser's
+// <img> error event fires and we fall back to the full URL.
+function makeThumbUrl(url, width) {
+  if (!url) return url;
+  // Tencent COS image processing — most CDNs from this provider accept it
+  try {
+    const u = new URL(url);
+    // Strip any existing image-processing params
+    u.searchParams.delete("imageMogr2");
+    u.searchParams.delete("imageView2");
+    u.searchParams.delete("x-oss-process");
+    // Append COS thumbnail param (preserves aspect ratio)
+    u.searchParams.set("imageMogr2", `thumbnail/${width}x`);
+    return u.toString();
+  } catch (e) {
+    return url;
+  }
 }
 
 function markExpired(el) {
@@ -585,6 +657,10 @@ async function generate() {
   if (!state.settings.apiKeys.length) { openSettings(); return; }
   if (!prompt) { toast("Write a prompt first.", "info"); $("#promptInput").focus(); return; }
   if (state.refs.some(r => r.status === "uploading")) { toast("Still uploading references — one moment.", "info"); return; }
+  // Record prompt in history (most-recent first, deduped, max 30)
+  if (!state.promptHistory) state.promptHistory = loadPromptHistory();
+  state.promptHistory = [prompt, ...state.promptHistory.filter(p => p !== prompt)].slice(0, 30);
+  savePromptHistory();
 
   const m = state.model;
   const n = Math.max(1, Math.min(4, state.batch || 1));
@@ -651,7 +727,9 @@ async function startJob(params, idx) {
     key: keyObj.key,   // pin this job to its own key (round-robin)
     keyIdx: keyObj.idx,
     progress: 0,
+    peakProgress: 0,    // for time-based stuck detection (regression detection)
     start: Date.now(),
+    lastChangeAt: Date.now(),   // for time-based stuck detection in pollJob
     retries: 0,
     cancelled: false,
     done: null       // resolved when job finishes (success or fail) — used by seq mode
@@ -756,17 +834,57 @@ function isRefExpiredError(msg) {
 function pollJob(job) {
   setTimeout(async () => {
     if (job.cancelled || !state.jobs.has(job.id)) return;
-    if (Date.now() - job.start > 300000) { failJob(job, "Timed out after 5 minutes."); return; }
+    if (Date.now() - job.start > 600000) { failJob(job, "Timed out after 10 minutes."); return; }
     try {
       const data = await api(`/api/public/v1/generate/${job.gid}`, { _key: job.key, _keyIdx: job.keyIdx });
       if (job.cancelled || !state.jobs.has(job.id)) return;
+      const prevStatus = job.status;
+      const prevProgress = job.progress;
       job.status = data.status;
-      job.progress = typeof data.progress === "number" ? data.progress : job.progress;
-      // NOTE: do NOT add a plateau-based "stuck" detector. Healthy generations
-      // legitimately sit on the same progress value for ~25s while the model
-      // computes; failing on flat progress abandons jobs that would succeed.
-      // Instead: only fail on terminal HTTP errors (catch block) or the
-      // 5-min ceiling above. See ai-media-studio skill, gallery-speed-and-stall-trap.
+      // Server sometimes reports progress:0 even for jobs that are valid and queued.
+      // We optimistically set progress:5 after create (meaning we have a real gid),
+      // so don't let the server's initial 0 overwrite our >0 progress.
+      if (typeof data.progress === "number") {
+        if (data.progress === 0 && job.progress > 0) {
+          // Ignore the server's 0% — keep our optimistic value
+        } else {
+          job.progress = data.progress;
+        }
+      }
+      // Track peak progress. If the server reports progress that drops below the
+      // peak we've already seen, the generation was cancelled/restarted server-side.
+      if (typeof job.progress === "number") {
+        if (job.peakProgress == null || job.progress > job.peakProgress) {
+          job.peakProgress = job.progress;
+        }
+      }
+      // Time-based stuck detection: tracks wall-clock time since the last *forward* change.
+      // Catches: (a) totally frozen (same status+progress every poll),
+      // (b) creeping/bouncing (status/progress oscillating but never reaching new highs),
+      // (c) regressions (progress drops back from 75% to 0% — server cancelled the job).
+      // Threshold: 90s since the peak stopped moving. Generations can legitimately
+      // plateau 30-60s mid-process at 4K/5K resolution; 90s gives those room to
+      // complete while catching real hangs.
+      // A change "counts" only if it doesn't regress the peak.
+      if ((job.status !== prevStatus || job.progress !== prevProgress) &&
+          (job.peakProgress == null || job.progress === job.peakProgress)) {
+        job.lastChangeAt = Date.now();
+      }
+      const sinceChange = job.lastChangeAt ? Date.now() - job.lastChangeAt : 0;
+      // Show "taking longer than usual" hint at 45s of no change.
+      if (sinceChange > 45000 && sinceChange < 46000) {
+        updateSkeleton(job, "Server is taking longer than usual...");
+      }
+      // Hard fail at 90s of no forward progress.
+      if (sinceChange > 90000) {
+        const stuckSec = Math.round(sinceChange / 1000);
+        const regressed = job.peakProgress != null && job.progress < job.peakProgress;
+        const msg = regressed
+          ? `Server reset the generation after reaching ${job.peakProgress}% (now at ${job.progress}%). Likely rate-limited or cancelled server-side.`
+          : `Generation stuck at ${job.progress || 0}% for ${stuckSec}s. The server isn't progressing this request.`;
+        failJob(job, msg);
+        return;
+      }
       const urls = data.result_urls || data.urls || [];
       if (data.status === "completed" || data.status === "success") finishJob(job, urls);
       else if (data.status === "failed" || data.status === "cancelled") {
@@ -811,7 +929,8 @@ function finishJob(job, urls) {
     w: 0,
     h: 0,
     ts: Date.now(),
-    extra: urls.length > 1 ? `+${urls.length - 1}` : ""
+    extra: urls.length > 1 ? `+${urls.length - 1}` : "",
+    tags: []  // user-added labels (e.g. ["hero", "instagram"])
   };
   state.jobs.delete(job.id);
   job._resolve && job._resolve();
@@ -903,7 +1022,27 @@ $("#gallery").addEventListener("click", e => {
   } else if (action === "reuse") {
     const rec = card._rec;
     if (rec) fillAndGenerate(rec);
+  } else if (action === "addtag") {
+    const rec = card._rec;
+    if (!rec) return;
+    const tag = prompt("Tag this image (e.g. hero, instagram, product):", "");
+    if (!tag) return;
+    const t = tag.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "");
+    if (!t) return;
+    rec.tags = rec.tags || [];
+    if (!rec.tags.includes(t)) {
+      rec.tags.push(t);
+      saveHistory();
+      renderCardTags(card, rec);
+    }
   }
+});
+
+// Search input
+$("#gallerySearch")?.addEventListener("input", e => {
+  state.gallerySearch = e.target.value;
+  renderGallery();
+  saveFilterState();
 });
 
 let saveHistoryTimer = null;
@@ -914,6 +1053,82 @@ function saveHistory() {
     try { localStorage.setItem(LS.hist, JSON.stringify(state.history)); } catch (e) {}
   }, 500);
 }
+
+// Persist gallery filter (search + tags) so refresh doesn't reset it.
+let saveFilterTimer = null;
+function saveFilterState() {
+  clearTimeout(saveFilterTimer);
+  saveFilterTimer = setTimeout(() => {
+    try {
+      localStorage.setItem("imagine.gallerySearch", state.gallerySearch || "");
+      localStorage.setItem("imagine.galleryTags", JSON.stringify(state.galleryTags || []));
+    } catch (e) {}
+  }, 300);
+}
+
+// ---- Prompt history (last 30 prompts, most-recent first) ----
+function loadPromptHistory() {
+  try { return JSON.parse(localStorage.getItem(LS.promptHistory) || "[]"); }
+  catch (e) { return []; }
+}
+function savePromptHistory() {
+  try { localStorage.setItem(LS.promptHistory, JSON.stringify(state.promptHistory || [])); }
+  catch (e) {}
+}
+function renderPromptHistory() {
+  const wrap = $("#promptHistory");
+  if (!wrap) return;
+  wrap.innerHTML = "";
+  const items = state.promptHistory || [];
+  if (!items.length) {
+    const empty = document.createElement("div");
+    empty.className = "prompt-history-empty";
+    empty.textContent = "No recent prompts yet";
+    wrap.appendChild(empty);
+  } else {
+    items.forEach(p => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "prompt-history-item";
+      b.textContent = p;
+      b.title = p;
+      b.addEventListener("click", () => {
+        $("#promptInput").value = p;
+        syncChar();
+        closePromptHistory();
+        $("#promptInput").focus();
+      });
+      wrap.appendChild(b);
+    });
+    const clr = document.createElement("button");
+    clr.type = "button";
+    clr.className = "prompt-history-clear";
+    clr.textContent = "Clear history";
+    clr.addEventListener("click", () => {
+      state.promptHistory = [];
+      savePromptHistory();
+      renderPromptHistory();
+    });
+    wrap.appendChild(clr);
+  }
+}
+function openPromptHistory() {
+  renderPromptHistory();
+  $("#promptHistory").hidden = false;
+  $("#promptHistoryBtn").classList.add("open");
+}
+function closePromptHistory() {
+  $("#promptHistory").hidden = true;
+  $("#promptHistoryBtn").classList.remove("open");
+}
+$("#promptHistoryBtn")?.addEventListener("click", e => {
+  e.stopPropagation();
+  const wrap = $("#promptHistory");
+  if (wrap.hidden) openPromptHistory(); else closePromptHistory();
+});
+document.addEventListener("click", e => {
+  if (!e.target.closest(".prompt-row")) closePromptHistory();
+});
 
 function renderHistory() {
   try { state.history = JSON.parse(localStorage.getItem(LS.hist) || "[]"); } catch (e) { state.history = []; }
@@ -1381,6 +1596,13 @@ document.addEventListener("keydown", e => {
   try { state.delayMs = Math.max(0, Math.min(60000, parseInt(localStorage.getItem(LS.delay) || "0", 10) || 0)); } catch (e) { state.delayMs = 0; }
   try { state.seq = localStorage.getItem(LS.seq) === "1"; } catch (e) { state.seq = false; }
   try { state.sort = localStorage.getItem(LS.sort) === "oldest" ? "oldest" : "newest"; } catch (e) { state.sort = "newest"; }
+  // Restore prompt history (the list that powers the ▾ dropdown)
+  state.promptHistory = loadPromptHistory();
+  // Restore gallery filter state
+  try { state.gallerySearch = localStorage.getItem("imagine.gallerySearch") || ""; } catch (e) { state.gallerySearch = ""; }
+  try { state.galleryTags = JSON.parse(localStorage.getItem("imagine.galleryTags") || "[]"); } catch (e) { state.galleryTags = []; }
+  const searchInput = $("#gallerySearch");
+  if (searchInput) searchInput.value = state.gallerySearch;
   const sortSel = $("#sortSelect");
   if (sortSel) sortSel.value = state.sort;
   syncChar();
