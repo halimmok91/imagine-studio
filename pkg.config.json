@@ -1,0 +1,16 @@
+{
+  "scripts": ["server.js"],
+  "assets": [
+    "index.html",
+    "styles.css",
+    "app.js",
+    "three-bg.js",
+    "revamp.js",
+    "landing.html",
+    "landing.css",
+    "landing.js",
+    "vendor/three-0.160.0.min.js"
+  ],
+  "targets": ["node18-win-x64"],
+  "outputPath": "dist"
+}
