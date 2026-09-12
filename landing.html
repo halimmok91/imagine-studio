@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Imagine Studio</title>
+<link rel="stylesheet" href="landing.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23FF5A3C' d='M12 2c.6 4.8 2.2 6.4 7 7-4.8.6-6.4 2.2-7 7-.6-4.8-2.2-6.4-7-7 4.8-.6 6.4-2.2 7-7Z'/%3E%3C/svg%3E">
+</head>
+<body>
+
+<!-- ambient wash + film grain, purely decorative -->
+<div class="aura" aria-hidden="true"><i></i><i></i><i></i></div>
+<div class="grain" aria-hidden="true"></div>
+
+<!-- the interactive title lives here; text stays in the DOM for
+     screen readers and as the no-WebGL fallback -->
+<canvas id="title-gl" aria-hidden="true"></canvas>
+
+<main class="shell" id="shell">
+
+  <div class="stack">
+    <h1 class="wordmark" id="wordmark" data-in="2">
+      <span class="wordmark-text">Imagine</span>
+      <span class="wordmark-sub">Studio</span>
+    </h1>
+
+    <!-- When the canvas draws the title, this reserves its exact height so
+         nothing above or below can overlap it. landing.js sets the height. -->
+    <div class="wordmark-slot" id="wordmarkSlot" aria-hidden="true"></div>
+  </div>
+
+  <div class="foot">
+    <button class="enter" id="btnEnter" data-in="4">
+      <span class="enter-label">Enter Studio</span>
+      <span class="enter-arrow" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 12h13m0 0-5-5m5 5-5 5"/>
+        </svg>
+      </span>
+      <span class="enter-fill" aria-hidden="true"></span>
+    </button>
+
+    <p class="tip" data-in="4">
+      Press <kbd>Enter</kbd> · drag the letters
+    </p>
+  </div>
+
+</main>
+
+<script src="vendor/three-0.160.0.min.js"></script>
+<script src="landing.js"></script>
+</body>
+</html>

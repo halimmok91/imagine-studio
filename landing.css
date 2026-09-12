@@ -1,0 +1,212 @@
+/* ═══════════════════════════════════════════════════════════════
+   IMAGINE STUDIO — landing / entry screen
+   Dark and cinematic. The wordmark is a live WebGL particle field
+   (landing.js); everything here is the quiet frame around it.
+   ═══════════════════════════════════════════════════════════════ */
+
+:root{
+  --void:#08070A;
+  --w:#F4F2F7;
+  --w-2:#A5A2AE;
+  /* 4.73:1 on --void, so 12.5px body copy still clears WCAG AA */
+  --w-3:#7C7987;
+  --hair:rgba(255,255,255,.09);
+  --hair-2:rgba(255,255,255,.05);
+  --surface:rgba(255,255,255,.045);
+  --flare:#FF5A3C;
+  --flare-2:#FFA05A;
+  --cool:#6C5CE7;
+  --spring:cubic-bezier(.22,1.4,.36,1);
+  --ease:cubic-bezier(.32,.72,0,1);
+  --f:'Inter Tight',-apple-system,'Segoe UI Variable Display','Segoe UI',system-ui,sans-serif;
+  --fb:-apple-system,'Segoe UI',system-ui,sans-serif;
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+[hidden]{display:none!important}
+
+html,body{height:100%}
+body{
+  font-family:var(--fb);font-size:16px;line-height:1.6;
+  color:var(--w);background:var(--void);
+  letter-spacing:-.011em;overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+svg{display:block}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+:focus-visible{outline:2px solid var(--flare);outline-offset:4px;border-radius:6px}
+
+/* ═══ ambient ═══ */
+.aura{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.aura i{position:absolute;display:block;border-radius:50%;filter:blur(100px);opacity:.36}
+.aura i:nth-child(1){
+  width:64vw;height:64vw;left:-18vw;top:-26vw;
+  background:radial-gradient(circle,rgba(255,90,60,.5),transparent 68%);
+  animation:drift1 30s ease-in-out infinite alternate;
+}
+.aura i:nth-child(2){
+  width:50vw;height:50vw;right:-14vw;top:2vh;
+  background:radial-gradient(circle,rgba(108,92,231,.46),transparent 68%);
+  animation:drift2 38s ease-in-out infinite alternate;
+}
+.aura i:nth-child(3){
+  width:56vw;height:56vw;left:22vw;top:56vh;
+  background:radial-gradient(circle,rgba(255,160,90,.26),transparent 70%);
+  animation:drift1 44s ease-in-out infinite alternate-reverse;
+}
+@keyframes drift1{to{transform:translate(8vw,6vh) scale(1.16)}}
+@keyframes drift2{to{transform:translate(-6vw,9vh) scale(1.1)}}
+
+.grain{
+  position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.55;
+  background-image:
+    repeating-linear-gradient(0deg,rgba(255,255,255,.014) 0 1px,transparent 1px 3px),
+    repeating-linear-gradient(90deg,rgba(255,255,255,.01) 0 1px,transparent 1px 3px);
+}
+.grain::after{
+  content:"";position:absolute;inset:0;
+  background:radial-gradient(128% 92% at 50% 42%,transparent 38%,rgba(3,2,5,.86) 100%);
+}
+
+/* the particle canvas sits above the wash, below the copy */
+#title-gl{
+  position:fixed;inset:0;z-index:5;width:100vw;height:100vh;display:block;
+  /* letters respond to the pointer, so the canvas must receive events */
+  touch-action:none;cursor:grab;
+}
+#title-gl.dragging{cursor:grabbing}
+body.no-gl #title-gl{display:none}
+
+/* ═══ layout ═══ */
+.shell{
+  position:relative;z-index:10;height:100%;
+  display:grid;grid-template-rows:1fr auto;
+  align-items:center;justify-items:center;
+  padding:clamp(28px,5vh,64px) 24px clamp(30px,5vh,54px);
+  text-align:center;
+  pointer-events:none;      /* let drags reach the canvas */
+}
+.shell > *{pointer-events:auto}
+
+.stack{
+  display:flex;flex-direction:column;align-items:center;
+  /* the canvas draws the wordmark; this column reserves its space */
+  gap:0;
+}
+
+/* entrance choreography */
+[data-in]{opacity:0;transform:translateY(16px);animation:rise .95s var(--spring) forwards}
+[data-in="2"]{animation-delay:.05s}
+/* the button and its hint arrive after the title has assembled (~0.35s) */
+[data-in="4"]{animation-delay:.75s}
+@keyframes rise{to{opacity:1;transform:none}}
+
+/* ═══ the wordmark ═══
+   Rendered by WebGL on the canvas. The DOM text is kept for
+   assistive tech and shown as the fallback when WebGL is absent. */
+.wordmark{
+  font-family:var(--f);font-weight:600;
+  font-size:clamp(58px,13.5vw,168px);
+  line-height:1;letter-spacing:-.045em;
+  display:flex;flex-direction:column;align-items:center;
+}
+.wordmark-text{
+  /* "Imagine" has a descender; a clipped background needs room for it or the
+     tail gets cut and the next line appears to touch it. */
+  padding-bottom:.06em;
+  background:linear-gradient(100deg,var(--flare) 0%,var(--flare-2) 44%,var(--cool) 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+.wordmark-sub{
+  font-size:.19em;font-weight:500;letter-spacing:.42em;
+  /* letter-spacing adds a trailing gap; pull it back so the word stays
+     optically centred under "Imagine" */
+  text-indent:.42em;
+  text-transform:uppercase;color:var(--w-3);
+  margin-top:.16em;line-height:1.1;
+}
+/* When the canvas is live it owns the visuals: hide the DOM copy from
+   sight but keep it readable by screen readers. */
+body.gl-live .wordmark{
+  position:absolute;width:1px;height:1px;overflow:hidden;
+  clip-path:inset(50%);white-space:nowrap;
+}
+/* Reserves the canvas wordmark's real height. landing.js measures the
+   sampled block and writes the pixel height here, then positions the
+   particle field at this element's centre. */
+.wordmark-slot{display:none}
+body.gl-live .wordmark-slot{display:block;width:1px}
+
+/* ═══ footer: the one action ═══ */
+.foot{display:flex;flex-direction:column;align-items:center;gap:16px}
+
+.enter{
+  position:relative;overflow:hidden;
+  display:flex;align-items:center;gap:13px;
+  height:58px;padding:0 15px 0 30px;border-radius:29px;
+  font-family:var(--f);font-size:17px;font-weight:600;letter-spacing:-.018em;
+  color:var(--void);background:var(--w);
+  box-shadow:0 14px 40px -10px rgba(255,255,255,.28);
+  transition:transform .35s var(--spring),box-shadow .4s var(--ease),color .35s;
+}
+.enter:hover{
+  transform:translateY(-3px) scale(1.03);
+  box-shadow:0 22px 56px -12px rgba(255,90,60,.5);
+  color:#fff;
+}
+.enter:active{transform:translateY(-1px) scale(.995)}
+.enter-label,.enter-arrow{position:relative;z-index:2}
+.enter-arrow{
+  width:34px;height:34px;border-radius:50%;flex:none;
+  display:grid;place-items:center;
+  background:rgba(8,7,10,.1);
+  transition:background .35s,transform .4s var(--spring);
+}
+.enter:hover .enter-arrow{background:rgba(255,255,255,.18);transform:translateX(3px)}
+.enter-arrow svg{width:17px;height:17px}
+/* accent wipes across on hover */
+.enter-fill{
+  position:absolute;inset:0;z-index:1;
+  background:linear-gradient(110deg,var(--flare),#FF7A45 55%,var(--flare-2));
+  transform:translateX(-101%);
+  transition:transform .55s var(--ease);
+}
+.enter:hover .enter-fill,.enter:focus-visible .enter-fill{transform:none}
+
+.tip{font-size:12.5px;color:var(--w-3);letter-spacing:.01em}
+kbd{
+  font-family:ui-monospace,'Cascadia Mono',Consolas,monospace;font-size:11px;
+  padding:2.5px 7px;border-radius:5px;
+  border:1px solid var(--hair);border-bottom-width:2px;
+  background:rgba(255,255,255,.055);color:var(--w-2);
+}
+
+/* ═══ leaving: the plate goes dark, then the app loads ═══ */
+body.leaving .aura,
+body.leaving .shell,
+body.leaving #title-gl{
+  transition:opacity .5s var(--ease),transform .6s var(--ease);
+  opacity:0;
+}
+body.leaving .shell{transform:translateY(-14px)}
+body.leaving #title-gl{transform:scale(1.06)}
+
+/* ═══ responsive ═══ */
+@media (max-width:640px){
+  .shell{padding-top:36px}
+  .wordmark{letter-spacing:-.035em}
+  .enter{height:54px;font-size:16px;padding-left:26px}
+}
+@media (max-height:560px){
+  .foot{gap:11px}
+}
+
+/* ═══ reduced motion ═══ */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    animation-duration:.01ms!important;animation-iteration-count:1!important;
+    transition-duration:.08s!important;
+  }
+  [data-in]{opacity:1;transform:none}
+  .aura i{animation:none!important}
+}

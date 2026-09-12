@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: imagine-studio
+    runtime: node
+    buildCommand: npm install
+    startCommand: npm start
+    plan: free
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: NO_BROWSER
+        value: "1"

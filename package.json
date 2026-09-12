@@ -1,0 +1,38 @@
+{
+  "name": "imagine-studio-new-ui",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Imagine Studio — new UI build (revamped interface over the original app logic)",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "bin": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "prebuild": "node -e \"const fs=require('fs'),path=require('path');fs.mkdirSync(path.join(__dirname,'dist'),{recursive:true});for(const f of ['app.js','server.js','index.html','styles.css','three-bg.js','revamp.js','landing.html','landing.css','landing.js'])fs.copyFileSync(path.join(__dirname,f),path.join(__dirname,'dist',f));fs.mkdirSync(path.join(__dirname,'dist','vendor'),{recursive:true});fs.copyFileSync(path.join(__dirname,'vendor','three-0.160.0.min.js'),path.join(__dirname,'dist','vendor','three-0.160.0.min.js'));console.log('[prebuild] synced sources to dist/')\"",
+    "build": "npm run prebuild && pkg --targets node18-win-x64 --config pkg.config.json --output dist/imagine-studio-new-ui.exe server.js"
+  },
+  "pkg": {
+    "scripts": [
+      "server.js"
+    ],
+    "assets": [
+      "index.html",
+      "styles.css",
+      "app.js",
+      "three-bg.js",
+      "revamp.js",
+      "landing.html",
+      "landing.css",
+      "landing.js",
+      "vendor/three-0.160.0.min.js"
+    ],
+    "targets": [
+      "node18-win-x64"
+    ],
+    "outputPath": "dist"
+  },
+  "devDependencies": {
+    "pkg": "^5.8.1"
+  }
+}
